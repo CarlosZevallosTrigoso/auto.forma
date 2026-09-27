@@ -1,0 +1,4 @@
+# Los .md de entradas/ se sirven crudos: el lector los renderiza en el navegador.
+# Sin esto, GitHub Pages los convertiría también en páginas HTML (y un "{{" en el texto podría romper el build).
+optional_front_matter:
+  enabled: false

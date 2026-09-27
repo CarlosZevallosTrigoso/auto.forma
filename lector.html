@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enciclopedia</title>
+<!-- marked 18.0.14 vendorizado (sin CDN). Si faltara el archivo, el lector degrada a texto plano y la anotación sigue funcionando. -->
+<script src="vendor/marked.umd.js"></script>
+<style>
+  :root{
+    --paper:#ffffff;        /* variante clara FORJA: blanco */
+    --panel:#f6f6f4;
+    --line:#e2e2dc;
+    --ink:#111111;
+    --ink-dim:#6b6b60;
+    --moss:#586a45;         /* acento primario */
+    --steel:#4f6b82;
+    --warm:#b06a36;
+    --mono: "Fira Code", ui-monospace, "SF Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    --serif: "Iowan Old Style", "Charter", Georgia, "Times New Roman", serif;
+    --r:2px;
+  }
+  /* ---- tema oscuro (paleta czt-bosque en carbón, misma familia que el ordenador de imágenes) ---- */
+  body.oscuro{
+    --paper:#16170f;
+    --panel:#1f2017;
+    --line:#33352a;
+    --ink:#d8d6c4;
+    --ink-dim:#8a8c78;
+    --moss:#8fa676;         /* musgo aclarado: bordes y focos legibles sobre carbón */
+    --steel:#7d99b0;
+    --warm:#c08a5a;
+  }
+  body.oscuro #doc code{background:#ffffff14}
+  body.oscuro #fab{color:#16170f}
+  body.oscuro #fab:hover{color:#16170f}
+  body.oscuro ::highlight(forja-nota){ background:rgba(143,166,118,.26); }
+  body.oscuro ::highlight(forja-activa){ background:rgba(192,138,90,.40); }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:var(--mono); font-size:12px; line-height:1.5;
+    display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden;
+  }
+
+  /* ---- cabecera ---- */
+  header{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap; row-gap:8px;
+    padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel);
+    flex:none;
+  }
+  #marca{
+    margin:0; font-size:12px; font-weight:600; letter-spacing:.18em; color:var(--ink);
+    text-decoration:none; white-space:nowrap;
+  }
+  #marca:hover{color:var(--moss)}
+  #docname{color:var(--ink-dim); font-size:11px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1}
+  .acciones{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
+  button{
+    font-family:var(--mono); font-size:11px; letter-spacing:.03em; cursor:pointer;
+    border-radius:var(--r); padding:6px 10px; border:1px solid var(--line);
+    background:var(--paper); color:var(--ink); transition:border-color .12s, color .12s, opacity .12s;
+  }
+  button:hover:not(:disabled){border-color:var(--moss); color:var(--moss)}
+  button:disabled{opacity:.4; cursor:default}
+  #contador{color:var(--ink-dim); font-size:10px; font-variant-numeric:tabular-nums; flex:none; min-width:9ch; text-align:right}
+
+  /* ---- estado inactivo para botones conmutadores ---- */
+  .acciones button.inactivo{ opacity:.55; text-decoration:line-through; }
+
+  /* ---- cuerpo: toc + lectura + panel ---- */
+  main{display:flex; flex:1; min-height:0}
+  #toc{
+    width:240px; flex:none; display:none; overflow-y:auto;
+    background:var(--panel); border-right:1px solid var(--line);
+    padding:14px 8px 24px;
+  }
+  #toc h2{
+    margin:0 0 8px; padding:0 6px; font-size:10px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--ink-dim); font-weight:600;
+  }
+  .toc-it{
+    display:block; padding:3px 6px; cursor:pointer; user-select:none;
+    border-left:2px solid transparent; color:var(--ink-dim);
+    font-size:11px; line-height:1.45; word-break:break-word;
+    transition:color .12s, border-color .12s;
+  }
+  .toc-it:hover, .toc-it:focus{color:var(--moss); border-left-color:var(--moss); outline:none}
+  .toc-it.n2{padding-left:18px}
+  .toc-it.n3{padding-left:30px; font-size:10.5px}
+  
+  /* ---- reglas de ocultamiento de paneles lateral e índice ---- */
+  body.no-toc #toc { display:none !important; }
+  body.no-panel #panel { display:none !important; }
+
+  #read{
+    flex:1; min-width:0; overflow-y:auto; position:relative;
+    overscroll-behavior:contain;
+    padding:32px 40px 120px;
+  }
+  #doc{
+    max-width:68ch; margin:0;
+    font-family:var(--serif); font-size:17px; line-height:1.75; color:var(--ink);
+  }
+  #doc.plano{font-family:var(--mono); font-size:13px; line-height:1.6; white-space:pre-wrap}
+  #doc h1{font-size:1.7em; line-height:1.2; margin:0 0 .6em}
+  #doc h2{font-size:1.35em; margin:1.6em 0 .5em}
+  #doc h3{font-size:1.12em; margin:1.4em 0 .4em}
+  #doc p{margin:0 0 1.05em; text-align:justify; hyphens:auto}
+  #doc em{font-style:italic}
+  #doc strong{font-weight:600}
+  #doc a{color:var(--steel)}
+  #doc blockquote{border-left:2px solid var(--moss); margin:1em 0; padding:.2em 0 .2em 1em; color:var(--ink-dim)}
+  #doc code{font-family:var(--mono); font-size:.85em; background:#0000000d; padding:.1em .3em; border-radius:var(--r)}
+  #doc ul,#doc ol{padding-left:1.4em; margin:0 0 1.05em}
+  #doc li{margin:.2em 0}
+  #doc img{max-width:100%; height:auto}
+  #doc pre{font-family:var(--mono); font-size:12.5px; line-height:1.55; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; overflow-x:auto}
+  #doc pre code{background:none; padding:0}
+  #doc table{border-collapse:collapse; margin:0 0 1.05em; font-size:.9em; display:block; overflow-x:auto}
+  #doc th,#doc td{border:1px solid var(--line); padding:.3em .6em; text-align:left; vertical-align:top}
+  #doc hr{border:none; border-top:1px solid var(--line); margin:2em 0}
+
+  /* resaltado sin mutar el DOM (offsets intactos) */
+  ::highlight(forja-nota){ background:rgba(88,106,69,.20); }
+  ::highlight(forja-activa){ background:rgba(176,106,54,.34); }
+
+  /* ---- estado vacío ---- */
+  #empty{max-width:64ch; margin:8vh auto 0; color:var(--ink-dim); font-size:12px; line-height:1.6}
+  #empty b{color:var(--ink); font-weight:600}
+  #empty a{color:var(--steel)}
+  a:focus-visible, button:focus-visible, .toc-it:focus-visible{outline:1px solid var(--moss); outline-offset:2px}
+  /* ---- panel de notas ---- */
+  #panel{
+    width:340px; flex:none; background:var(--panel); border-left:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  #panel h2{
+    margin:0; padding:12px 14px; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-dim); border-bottom:1px solid var(--line); font-weight:600;
+  }
+  #list{overflow-y:auto; padding:6px; flex:1; min-height:0}
+  .vacio{color:var(--ink-dim); font-size:11px; padding:16px 10px; line-height:1.5}
+  .nota{
+    border:1px solid var(--line); border-radius:var(--r); background:var(--paper);
+    padding:8px 9px; margin-bottom:8px; transition:border-color .12s;
+  }
+  .nota.activa{border-color:var(--warm)}
+  .quote{
+    font-family:var(--serif); font-size:12.5px; line-height:1.4; color:var(--ink);
+    border-left:2px solid var(--moss); padding-left:8px; margin-bottom:6px; cursor:pointer;
+  }
+  .nota.activa .quote{border-left-color:var(--warm)}
+  .quote:hover{color:var(--moss)}
+  .coments{margin:2px 0 4px}
+  .coment{border-left:2px solid var(--line); padding:3px 0 3px 8px; margin:4px 0}
+  .coment-tx{font-family:var(--mono); font-size:11.5px; line-height:1.45; color:var(--ink); white-space:pre-wrap; word-break:break-word}
+  .coment-meta{display:flex; align-items:center; justify-content:space-between; margin-top:2px; color:var(--ink-dim); font-size:9.5px}
+  .cdel{padding:0 5px; font-size:13px; line-height:1; border-color:transparent; background:transparent; color:var(--ink-dim)}
+  .cdel:hover{border-color:var(--warm); color:var(--warm)}
+  .add{display:flex; gap:6px; margin-top:4px}
+  .add-in{flex:1; resize:none; overflow:hidden; min-height:30px; background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:var(--r); padding:5px 6px; font-family:var(--mono); font-size:11.5px; line-height:1.45}
+  .add-in:focus{outline:1px solid var(--moss); border-color:var(--moss)}
+  .add-btn{flex:none; padding:4px 9px; font-size:10px; align-self:flex-start}
+  .fila{display:flex; align-items:center; justify-content:space-between; margin-top:5px; gap:8px}
+  .pos{color:var(--ink-dim); font-size:9.5px; font-variant-numeric:tabular-nums; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .del{padding:2px 7px; font-size:10px; flex:none}
+  .del:hover{border-color:var(--warm); color:var(--warm)}
+
+  /* ---- botón flotante de selección ---- */
+  #fab{
+    position:fixed; z-index:50; display:none;
+    background:var(--moss); color:#f3efe3; border-color:var(--moss); font-weight:600;
+    box-shadow:0 2px 8px #0003; padding:6px 12px;
+  }
+  #fab.on{display:block}
+  #fab:hover{background:var(--warm); border-color:var(--warm); color:#f3efe3}
+
+  /* ---- modo tablet: fab como barra inferior fija + objetivos táctiles ---- */
+  body.tablet #fab{ display:none !important; }
+  body.tablet .acciones button{ padding:9px 12px; min-height:44px; }
+  body.tablet .add-in{ min-height:42px; font-size:13px }
+  body.tablet .add-btn{ min-height:42px; padding:9px 13px }
+  #tablet.activo{ border-color:var(--moss); color:var(--moss) }
+  #anotarBtn{
+    display:none; margin:8px; width:calc(100% - 16px);
+    padding:13px 12px; font-size:14px; font-weight:600; border-radius:2px;
+    background:var(--panel); color:var(--ink-dim); border:1px solid var(--line);
+  }
+  body.tablet #anotarBtn{ display:block }
+  #anotarBtn.lista{ background:var(--moss); color:#f3efe3; border-color:var(--moss) }
+
+  .hide{display:none !important}
+
+  /* ---- contador de palabras/caracteres/páginas (esquina inferior derecha) ---- */
+  #stats{
+    position:fixed; right:12px; bottom:12px; z-index:70; display:none;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    color:var(--ink-dim); font-size:10px; padding:3px 8px;
+    font-variant-numeric:tabular-nums; letter-spacing:.02em; user-select:none;
+  }
+
+  /* ---- controles visuales (esquina inferior izquierda) ---- */
+  #controlesVis{
+    position:fixed; left:12px; bottom:12px; z-index:40; display:none;
+  }
+  
+  #btnAjustes{
+    box-shadow:0 2px 6px #0001;
+  }
+  
+  #ajustesPanel{
+    position:absolute; bottom:calc(100% + 8px); left:0;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    padding:10px 12px; box-shadow:0 4px 12px #0002;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  #ajustesPanel.hide{display:none}
+  
+  .ajuste-row{
+    display:flex; align-items:center; gap:8px;
+    color:var(--ink-dim); font-size:10px; user-select:none;
+  }
+  .ajuste-row input{width:130px; accent-color:var(--moss); margin:0}
+  .ajuste-row .val{color:var(--moss); font-variant-numeric:tabular-nums; min-width:4ch; text-align:right}
+
+  .nota.huerfana{opacity:.72; border-style:dashed}
+  .nota.huerfana .quote{border-left-color:var(--ink-dim)}
+</style>
+</head>
+<body>
+  <header>
+    <a id="marca" href="./" title="Volver al índice">ENCICLOPEDIA</a>
+    <div id="docname"></div>
+    <div class="acciones">
+      <button id="cargarJson" disabled title="Importar notas desde un .json exportado (también del anotador)">importar notas</button>
+      <button id="export" disabled title="Descargar las notas de esta entrada como .json">exportar notas</button>
+      <button id="toggleToc" title="Mostrar u ocultar la tabla de contenidos de la entrada">contenido</button>
+      <button id="togglePanel" title="Mostrar u ocultar el panel lateral de anotaciones">anotaciones</button>
+      <button id="tablet" title="Modo táctil: botón anotar fijo abajo y objetivos grandes">tablet</button>
+      <button id="tema" title="Cambiar tema">oscuro</button>
+    </div>
+    <div id="contador"></div>
+  </header>
+
+  <main>
+    <nav id="toc" aria-label="Tabla de contenidos">
+      <h2>Contenido</h2>
+      <div id="tocList"></div>
+    </nav>
+    <section id="read">
+      <div id="empty" role="status"><p id="avisoTx">Cargando entrada…</p></div>
+      <article id="doc"></article>
+    </section>
+
+    <aside id="panel">
+      <h2>Anotaciones</h2>
+      <button id="anotarBtn" disabled>＋ anotar selección</button>
+      <div id="list"><p class="vacio">Sin anotaciones todavía.</p></div>
+    </aside>
+  </main>
+
+  <button id="fab" title="Crear anotación">＋ anotar</button>
+  <div id="stats"></div>
+  
+  <!-- PANEL DE AJUSTES UNIFICADO -->
+  <div id="controlesVis">
+    <button id="btnAjustes" title="Ajustes de lectura">ajustes</button>
+    <div id="ajustesPanel" class="hide">
+      <div class="ajuste-row">
+        <span>ancho</span>
+        <input type="range" id="ancho" min="60" max="160" step="2" value="68">
+        <span class="val" id="ancho-v">68</span>
+      </div>
+      <div class="ajuste-row">
+        <span>negro</span>
+        <input type="range" id="tono" min="0" max="100" step="1" value="0">
+        <span class="val" id="tono-v">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileJson" accept=".json,application/json" class="hide">
+
+<script>
+/* === NÚCLEO PURO (sin DOM). Idéntico en index.html y lector.html; probado en Node. === */
+const NUCLEO = (function(){
+  'use strict';
+  const CARPETA = 'entradas/';
+
+  function sinBom(s){ return String(s || '').replace(/^\uFEFF/, ''); }
+
+  // quita un bloque YAML inicial (--- … ---) si existe; lo demás intacto
+  function quitarFrontMatter(md){
+    md = sinBom(md);
+    const m = md.match(/^---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/);
+    return m ? md.slice(m[0].length) : md;
+  }
+
+  // markdown en línea -> texto plano (para títulos)
+  function limpiarInline(t){
+    return t
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/`([^`]*)`/g, '$1')
+      .replace(/(\*\*|__)(.+?)\1/g, '$2')
+      .replace(/(\*|_)(.+?)\1/g, '$2')
+      .replace(/\\([\\`*_{}\[\]()#+\-.!:])/g, '$1')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // primer encabezado de nivel 1 (ATX "# x" o setext "x\n===") fuera de bloques de código
+  function tituloDeMd(md){
+    const lineas = quitarFrontMatter(md).split(/\r?\n/);
+    let valla = null;
+    for (let i = 0; i < lineas.length; i++){
+      const l = lineas[i];
+      const f = l.match(/^ {0,3}(`{3,}|~{3,})/);
+      if (f){
+        if (!valla) valla = f[1];
+        else if (f[1][0] === valla[0] && f[1].length >= valla.length && /^ {0,3}(`{3,}|~{3,})\s*$/.test(l)) valla = null;
+        continue;
+      }
+      if (valla) continue;
+      const atx = l.match(/^ {0,3}#[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/);
+      if (atx){ const t = limpiarInline(atx[1]); if (t) return t; continue; }
+      if (l.trim() && i + 1 < lineas.length && /^ {0,3}=+[ \t]*$/.test(lineas[i + 1])){
+        const t = limpiarInline(l); if (t) return t;
+      }
+    }
+    return null;
+  }
+
+  // "teoria-del_signo.md" -> "teoria del signo"
+  function nombreLegible(nombre){
+    return String(nombre).replace(/\.md$/i, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || String(nombre);
+  }
+
+  // parámetro ?e= -> nombre seguro (sin .md) o null
+  function validarNombre(e){
+    if (typeof e !== 'string') return null;
+    let n = e.trim().replace(/\.md$/i, '');
+    if (!n || n.length > 200) return null;
+    if (/[\/\\\u0000-\u001f]/.test(n) || n[0] === '.') return null;
+    return n;
+  }
+
+  function rutaMd(nombre){ return CARPETA + encodeURIComponent(nombre) + '.md'; }
+  function urlLector(nombre, frag){ return 'lector.html?e=' + encodeURIComponent(nombre) + (frag || ''); }
+
+  // manifiesto {entradas:["/entradas/x.md", …]} -> [{archivo, nombre}] solo del nivel superior de entradas/
+  function parsearManifiesto(data){
+    const rutas = Array.isArray(data) ? data : (data && Array.isArray(data.entradas) ? data.entradas : null);
+    if (!rutas) throw new Error('manifiesto sin lista «entradas»');
+    const vistos = new Set(), out = [];
+    for (const r of rutas){
+      if (typeof r !== 'string') continue;
+      const m = r.match(/^\/?entradas\/([^\/]+\.md)$/i);
+      if (!m) continue;
+      const archivo = m[1];
+      const nombre = validarNombre(archivo);
+      if (!nombre || vistos.has(nombre)) continue;
+      vistos.add(nombre);
+      out.push({ archivo, nombre });
+    }
+    return out;
+  }
+
+  const COLL = (typeof Intl !== 'undefined' && Intl.Collator)
+    ? new Intl.Collator('es', { sensitivity:'base', numeric:true }) : null;
+  function comparar(a, b){ return COLL ? COLL.compare(a, b) : (a < b ? -1 : a > b ? 1 : 0); }
+  function ordenarEntradas(lista){
+    return lista.slice().sort((x, y)=> comparar(x.titulo, y.titulo) || comparar(x.nombre, y.nombre));
+  }
+
+  // letra de agrupación del índice: sin tildes, mayúscula; lo no alfabético va a "#"
+  function inicial(titulo){
+    const c0 = String(titulo || '').trim().charAt(0).toUpperCase();
+    const c = c0 === 'Ñ' ? c0 : c0.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return /[A-ZÑ]/.test(c) ? c : '#';
+  }
+
+  // href relativo dentro de una entrada -> href válido desde la raíz del sitio, o null si no se toca
+  //  "otra.md#x" -> "lector.html?e=otra#x" ; "img/a.png" -> "entradas/img/a.png"
+  function reescribirHref(href){
+    if (!href) return null;
+    href = String(href).trim();
+    if (!href || href[0] === '#' || href[0] === '/' || href[0] === '?') return null;
+    if (/^[a-z][a-z0-9+.\-]*:/i.test(href)) return null;       // http:, mailto:, data:, javascript:…
+    const k = href.search(/[?#]/);
+    let ruta = k === -1 ? href : href.slice(0, k);
+    const resto = k === -1 ? '' : href.slice(k);
+    ruta = ruta.replace(/^(\.\/)+/, '');
+    if (!ruta || /^\.\.(\/|$)/.test(ruta)) return null;          // fuera de entradas/: no se adivina
+    let dec = ruta; try { dec = decodeURIComponent(ruta); } catch(e){}
+    if (/\.md$/i.test(dec) && dec.indexOf('/') === -1){
+      const n = validarNombre(dec);
+      if (n){ const frag = resto.indexOf('#') !== -1 ? resto.slice(resto.indexOf('#')) : ''; return urlLector(n, frag); }
+    }
+    return CARPETA + ruta + resto;
+  }
+
+  // ids estables para encabezados (anclas #seccion)
+  function slug(t){
+    return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[^a-z0-9ñ\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-') || 'seccion';
+  }
+
+  // prefijo de localStorage por sitio: todos los repos de usuario.github.io comparten origen
+  function baseSitio(pathname){ return String(pathname || '/').replace(/[^\/]*$/, ''); }
+  function claveNotas(base, nombre){ return 'forja-enc:' + base + ':notas:' + nombre; }
+
+  return { quitarFrontMatter, limpiarInline, tituloDeMd, nombreLegible, validarNombre, rutaMd, urlLector,
+           parsearManifiesto, ordenarEntradas, inicial, reescribirHref, slug, baseSitio, claveNotas };
+})();
+if (typeof module !== 'undefined') module.exports = NUCLEO;
+/* === FIN NÚCLEO === */
+</script>
+<script>
+(function(){
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const docEl = $('doc'), read = $('read'), empty = $('empty');
+  const list = $('list'), fab = $('fab');
+  const N = NUCLEO;
+  const BASE = N.baseSitio(location.pathname);
+  const CTX = 32; // caracteres de contexto para prefix/suffix
+
+  let rawMd = '', docText = '', docName = '';
+  let annos = [];        // {id, nota, creado, exact, prefix, suffix, start, end, mdStart, mdEnd, mdUnico, range}
+  let pending = null;    // captura de la selección en curso
+  let activeId = null;
+  let entrada = '';       // nombre de la entrada (?e=), sin .md
+  let docTitulo = '';    // primer "# " o nombre legible: lo que muestra la cabecera
+
+  // orden de lectura; huérfanas (start null) al final. Único comparador para toda la app.
+  const cmpAnnos = (x, y) => (x.start == null ? 1e15 : x.start) - (y.start == null ? 1e15 : y.start);
+
+  // ===== render =====
+  // enlaces e imágenes relativos a entradas/; ids en encabezados para anclas #seccion
+  function postprocesar(){
+    docEl.querySelectorAll('a[href]').forEach(a=>{
+      const h = N.reescribirHref(a.getAttribute('href'));
+      if (h) a.setAttribute('href', h);
+      if (/^https?:/i.test(a.getAttribute('href'))){ a.target = '_blank'; a.rel = 'noopener'; }
+    });
+    docEl.querySelectorAll('img[src]').forEach(img=>{
+      const h = N.reescribirHref(img.getAttribute('src'));
+      if (h) img.setAttribute('src', h);
+    });
+    const usados = new Set();
+    docEl.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h=>{
+      if (h.id){ usados.add(h.id); return; }
+      let base = N.slug(h.textContent), id = base, k = 2;
+      while (usados.has(id)) id = base + '-' + (k++);
+      usados.add(id); h.id = id;
+    });
+  }
+
+  function render(md, name){
+    rawMd = md; docName = name || 'documento.md';
+    annos = []; pending = null; activeId = null;
+    if (window.marked && typeof marked.parse === 'function'){
+      docEl.innerHTML = marked.parse(N.quitarFrontMatter(md));
+      docEl.classList.remove('plano');
+      postprocesar();
+    } else {
+      docEl.textContent = md;                 // degradación honesta: sin CDN, texto crudo (igual anotable)
+      docEl.classList.add('plano');
+    }
+    // texto plano canónico del documento: base de todos los offsets
+    const r = document.createRange();
+    r.selectNodeContents(docEl);
+    docText = r.toString();
+    empty.classList.add('hide');
+    docEl.style.display = 'block';
+    docTitulo = N.tituloDeMd(md) || N.nombreLegible(docName);
+    $('docname').textContent = docTitulo;
+    document.title = docTitulo + ' · Enciclopedia';
+    buildToc();
+    refreshHighlights(); renderList(); updateChrome();
+  }
+
+  // ===== tabla de contenidos =====
+  function buildToc(){
+    const nav = $('toc'), tl = $('tocList');
+    tl.innerHTML = '';
+    const hs = docEl.querySelectorAll('h1, h2, h3');
+    if (!hs.length){ nav.style.display = 'none'; return; }   // texto plano o md sin cabeceras
+    hs.forEach(h => {
+      const it = document.createElement('div');
+      it.className = 'toc-it n' + h.tagName.charAt(1);
+      it.textContent = h.textContent;
+      it.title = h.textContent;
+      it.tabIndex = 0;
+      const ir = ()=>{
+        const rc = h.getBoundingClientRect(), cc = read.getBoundingClientRect();
+        read.scrollTop += (rc.top - cc.top) - 16;
+      };
+      it.addEventListener('click', ir);
+      it.addEventListener('keydown', e=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ir(); } });
+      tl.appendChild(it);
+    });
+    nav.style.display = 'block';
+  }
+
+  // offset de un punto (nodo, offset) dentro de docEl, medido en el mismo espacio que docText
+  function pointOffset(node, offset){
+    const r = document.createRange();
+    r.selectNodeContents(docEl);
+    try { r.setEnd(node, offset); } catch(e){ return null; }
+    return r.toString().length;
+  }
+
+  // ===== captura de selección =====
+  function captureSelection(){
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return null;
+    if (!docEl.contains(range.commonAncestorContainer)) return null; // solo dentro del texto
+    const start = pointOffset(range.startContainer, range.startOffset);
+    const end   = pointOffset(range.endContainer, range.endOffset);
+    if (start == null || end == null || end <= start) return null;
+    const exact = docText.slice(start, end);
+    if (!exact.trim()) return null;
+    const prefix = docText.slice(Math.max(0, start - CTX), start);
+    const suffix = docText.slice(end, end + CTX);
+    const md = mdOffset(exact);
+    return {
+      range: range.cloneRange(), exact, prefix, suffix, start, end,
+      mdStart: md.start, mdEnd: md.end, mdUnico: md.unico
+    };
+  }
+
+  // offset best-effort en el .md crudo: sirve si la selección aparece verbatim en la fuente
+  function mdOffset(exact){
+    const first = rawMd.indexOf(exact);
+    if (first === -1) return { start:null, end:null, unico:false };
+    const second = rawMd.indexOf(exact, first + 1);
+    return { start:first, end:first + exact.length, unico: second === -1 };
+  }
+
+  // ===== re-anclaje (para importar .json) =====
+  function pointFromOffset(target){
+    target = Math.max(0, Math.min(target, docText.length));
+    const walker = document.createTreeWalker(docEl, NodeFilter.SHOW_TEXT, null);
+    let acc = 0, node, last = null;
+    while ((node = walker.nextNode())){
+      const len = node.nodeValue.length;
+      if (acc + len >= target) return { node, offset: target - acc };
+      acc += len; last = node;
+    }
+    return last ? { node: last, offset: last.nodeValue.length } : null;
+  }
+  function makeRange(start, end){
+    const a = pointFromOffset(start), b = pointFromOffset(end);
+    if (!a || !b) return null;
+    const r = document.createRange();
+    try { r.setStart(a.node, a.offset); r.setEnd(b.node, b.offset); } catch(e){ return null; }
+    return { range: r, start, end };
+  }
+  function commonSuffixLen(a, b){ let i=0; while(i<a.length && i<b.length && a[a.length-1-i]===b[b.length-1-i]) i++; return i; }
+  function commonPrefixLen(a, b){ let i=0; while(i<a.length && i<b.length && a[i]===b[i]) i++; return i; }
+  function findByQuote(exact, prefix, suffix){
+    const hits = []; let i = docText.indexOf(exact);
+    while (i !== -1){ hits.push(i); i = docText.indexOf(exact, i + 1); }
+    if (!hits.length) return null;
+    if (hits.length === 1) return { start: hits[0], end: hits[0] + exact.length };
+    let best = hits[0], score = -1;
+    for (const s of hits){
+      const pre = docText.slice(Math.max(0, s - prefix.length), s);
+      const suf = docText.slice(s + exact.length, s + exact.length + suffix.length);
+      const sc = commonSuffixLen(pre, prefix) + commonPrefixLen(suf, suffix);
+      if (sc > score){ score = sc; best = s; }
+    }
+    return { start: best, end: best + exact.length };
+  }
+  function resolveAnchor(obj){
+    const exact = obj.exact || '';
+    const tp = obj.textoPlano || {};
+    if (exact && Number.isInteger(tp.start) && Number.isInteger(tp.end) && docText.slice(tp.start, tp.end) === exact)
+      return makeRange(tp.start, tp.end);
+    if (exact){ const h = findByQuote(exact, obj.prefix || '', obj.suffix || ''); if (h) return makeRange(h.start, h.end); }
+    if (Number.isInteger(tp.start) && Number.isInteger(tp.end) && tp.end > tp.start && tp.end <= docText.length)
+      return makeRange(tp.start, tp.end);
+    return null;
+  }
+
+  // ===== alternar visibilidad de paneles (toc y panel) =====
+  function aplicarToc(visible){
+    document.body.classList.toggle('no-toc', !visible);
+    $('toggleToc').classList.toggle('inactivo', !visible);
+  }
+  function aplicarPanel(visible){
+    document.body.classList.toggle('no-panel', !visible);
+    $('togglePanel').classList.toggle('inactivo', !visible);
+  }
+
+  $('toggleToc').addEventListener('click', ()=>{
+    const visible = document.body.classList.contains('no-toc');
+    aplicarToc(visible);
+    try { localStorage.setItem('forja-lector-toc', visible ? '1' : '0'); } catch(e){}
+  });
+
+  $('togglePanel').addEventListener('click', ()=>{
+    const visible = document.body.classList.contains('no-panel');
+    aplicarPanel(visible);
+    try { localStorage.setItem('forja-lector-panel', visible ? '1' : '0'); } catch(e){}
+  });
+
+  (function(){
+    let pt = null, pp = null;
+    try {
+      pt = localStorage.getItem('forja-lector-toc');
+      pp = localStorage.getItem('forja-lector-panel');
+    } catch(e){}
+    aplicarToc(pt !== '0');
+    aplicarPanel(pp !== '0');
+  })();
+
+  // ===== importar .json =====
+  function importJSON(text, fname){
+    let data;
+    try { data = JSON.parse(text); } catch(e){ alert('JSON inválido: ' + e.message); return; }
+    const items = Array.isArray(data) ? data : (data.anotaciones || []);
+    if (!items.length){ alert('El .json no contiene anotaciones reconocibles.'); return; }
+    if (!rawMd){ alert('La entrada todavía no está cargada: las anotaciones se anclan sobre su texto.'); return; }
+    if (data.documento && data.documento.hashMd && data.documento.hashMd !== hash32(rawMd)){
+      if (!confirm('El .json se generó sobre otra versión o documento (hash distinto). Intento relocalizar por contexto de todos modos. ¿Continuar?')) return;
+    }
+    const { ok, huerf, dup } = integrar(items);
+    persistir();
+    if (huerf || dup)
+      alert(ok + ' ancladas' + (huerf ? ', ' + huerf + ' sin anclar (huérfanas)' : '') + (dup ? ', ' + dup + ' duplicadas omitidas' : '') + '.');
+  }
+
+  // añade items (formato de exportación) a annos, re-anclando por posición y cita
+  function integrar(items){
+    let ok = 0, huerf = 0, dup = 0;
+    for (const it of items){
+      const obj = it.objetivo || it;
+      const id = it.id || ('a' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+      if (annos.some(a => a.id === id)){ dup++; continue; }
+      // anclada solo si el texto en esa posición sigue siendo la cita: el respaldo por offset
+      // de resolveAnchor pegaría la nota sobre otro pasaje cuando la entrada cambió
+      let anc = resolveAnchor(obj);
+      if (anc && obj.exact && docText.slice(anc.start, anc.end) !== obj.exact) anc = null;
+      const tp = obj.textoPlano || {};
+      let coments = [];
+      if (Array.isArray(it.comentarios))
+        coments = it.comentarios.filter(c => c && typeof c.texto === 'string' && c.texto.trim())
+                                .map(c => ({ texto: c.texto, creado: c.creado || new Date().toISOString() }));
+      else if (typeof it.nota === 'string' && it.nota.trim())
+        coments = [{ texto: it.nota, creado: it.creado || new Date().toISOString() }];
+      const a = {
+        id, comentarios: coments, creado: it.creado || new Date().toISOString(),
+        exact: obj.exact || '', prefix: obj.prefix || '', suffix: obj.suffix || '',
+        start: anc ? anc.start : (Number.isInteger(tp.start) ? tp.start : null),
+        end:   anc ? anc.end   : (Number.isInteger(tp.end)   ? tp.end   : null),
+        range: anc ? anc.range : null,
+        huerfana: !anc
+      };
+      const md = a.exact ? mdOffset(a.exact) : { start:null, end:null, unico:false };
+      a.mdStart = md.start; a.mdEnd = md.end; a.mdUnico = md.unico;
+      annos.push(a); anc ? ok++ : huerf++;
+    }
+    annos.sort(cmpAnnos);
+    refreshHighlights(); renderList(); updateChrome();
+    return { ok, huerf, dup };
+  }
+
+  // ===== persistencia local por entrada =====
+  let avisadoFallo = false;
+  function persistir(){
+    if (!entrada) return;
+    const k = N.claveNotas(BASE, entrada);
+    try {
+      if (annos.length) localStorage.setItem(k, JSON.stringify(buildPayload()));
+      else localStorage.removeItem(k);
+    } catch(e){
+      if (!avisadoFallo){ avisadoFallo = true; alert('Este navegador no permite guardar las notas (modo privado o almacenamiento lleno). Exporta las notas antes de salir para no perderlas.'); }
+    }
+  }
+  function restaurar(){
+    let txt = null;
+    try { txt = localStorage.getItem(N.claveNotas(BASE, entrada)); } catch(e){ return; }
+    if (!txt) return;
+    let data;
+    try { data = JSON.parse(txt); } catch(e){ return; }
+    const items = Array.isArray(data.anotaciones) ? data.anotaciones : [];
+    if (!items.length) return;
+    const cambio = !!(data.documento && data.documento.hashMd && data.documento.hashMd !== hash32(rawMd));
+    const r = integrar(items);
+    if (cambio){
+      persistir();   // guarda las posiciones re-ancladas sobre la versión nueva
+      avisoDoc('la entrada cambió desde tu última lectura · ' + r.ok + ' notas re-ancladas' + (r.huerf ? ', ' + r.huerf + ' huérfanas' : ''), 8000);
+    }
+  }
+  function readJsonFile(file){
+    if (!file) return;
+    const fr = new FileReader();
+    fr.onload = ()=> importJSON(String(fr.result), file.name);
+    fr.onerror = ()=> alert('No se pudo leer el .json.');
+    fr.readAsText(file);
+  }
+
+  // ===== resaltado =====
+  const canHL = ('highlights' in CSS) && (typeof Highlight === 'function');
+  function refreshHighlights(){
+    if (!canHL) return;
+    const base = new Highlight(), act = new Highlight();
+    for (const a of annos){
+      if (!a.range) continue;
+      (a.id === activeId ? act : base).add(a.range);
+    }
+    CSS.highlights.set('forja-nota', base);
+    CSS.highlights.set('forja-activa', act);
+  }
+
+  // ===== crear anotación desde la captura pendiente =====
+  function addAnno(){
+    if (!pending) return;
+    const a = Object.assign({
+      id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      comentarios: [], creado: new Date().toISOString()
+    }, pending);
+    annos.push(a);
+    annos.sort(cmpAnnos);
+    activeId = a.id; pending = null;
+    hideFab();
+    const sel = window.getSelection(); if (sel) sel.removeAllRanges();
+    refreshHighlights(); renderList(true); updateChrome();
+    persistir();
+  }
+
+  function removeAnno(id){
+    annos = annos.filter(a=> a.id !== id);
+    if (activeId === id) activeId = null;
+    refreshHighlights(); renderList(); updateChrome();
+    persistir();
+  }
+
+  function setActive(id){
+    activeId = id;
+    list.querySelectorAll('.nota').forEach(n=> n.classList.toggle('activa', n.dataset.id === id));
+    refreshHighlights();
+  }
+
+  function gotoAnno(id){
+    setActive(id);
+    const a = annos.find(x=> x.id === id);
+    if (a && a.range){
+      const rc = a.range.getBoundingClientRect();
+      const cc = read.getBoundingClientRect();
+      read.scrollTop += (rc.top - cc.top) - 100;
+    }
+  }
+
+  // ===== lista lateral =====
+  function autoGrow(ta){ ta.style.height='auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  function fmtFecha(iso){
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    try { return d.toLocaleString('es', { dateStyle:'short', timeStyle:'short' }); }
+    catch(e){ return d.toISOString().slice(0,16).replace('T',' '); }
+  }
+
+  function commentNode(a, c){
+    const row = document.createElement('div');
+    row.className = 'coment';
+    const tx = document.createElement('div');
+    tx.className = 'coment-tx';
+    tx.textContent = c.texto;
+    const meta = document.createElement('div');
+    meta.className = 'coment-meta';
+    const when = document.createElement('span');
+    when.textContent = fmtFecha(c.creado);
+    const x = document.createElement('button');
+    x.className = 'cdel'; x.textContent = '×'; x.title = 'Borrar comentario';
+    x.addEventListener('click', ()=>{ a.comentarios = a.comentarios.filter(k=> k !== c); renderList(); updateChrome(); persistir(); });
+    meta.append(when, x);
+    row.append(tx, meta);
+    return row;
+  }
+
+  function renderList(focusNew){
+    list.innerHTML = '';
+    if (!annos.length){
+      list.innerHTML = '<p class="vacio">Selecciona texto y pulsa «anotar» para empezar.</p>';
+      return;
+    }
+    for (const a of annos){
+      const item = document.createElement('div');
+      item.className = 'nota' + (a.id === activeId ? ' activa' : '') + (a.huerfana ? ' huerfana' : '');
+      item.dataset.id = a.id;
+
+      const q = document.createElement('div');
+      q.className = 'quote';
+      q.textContent = a.exact.length > 160 ? a.exact.slice(0,160) + '…' : a.exact;
+      q.title = 'Ir al pasaje';
+      q.addEventListener('click', ()=> gotoAnno(a.id));
+
+      const coments = document.createElement('div');
+      coments.className = 'coments';
+      for (const c of a.comentarios) coments.appendChild(commentNode(a, c));
+
+      const add = document.createElement('div');
+      add.className = 'add';
+      const ta = document.createElement('textarea');
+      ta.className = 'add-in';
+      ta.placeholder = 'Añadir comentario… (Enter guarda)';
+      ta.enterKeyHint = 'done';
+      ta.addEventListener('input', ()=> autoGrow(ta));
+      ta.addEventListener('focus', ()=> setActive(a.id));
+      const doAdd = ()=>{
+        const t = ta.value.trim(); if (!t) return;
+        const c = { texto: t, creado: new Date().toISOString() };
+        a.comentarios.push(c);
+        coments.appendChild(commentNode(a, c));
+        ta.value = ''; autoGrow(ta); ta.focus();
+        updateChrome(); persistir();
+      };
+      ta.addEventListener('keydown', e=>{
+        if (e.isComposing || e.keyCode === 229) return;
+        if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); doAdd(); }
+      });
+      const btn = document.createElement('button');
+      btn.className = 'add-btn'; btn.textContent = 'añadir';
+      btn.addEventListener('click', doAdd);
+      add.append(ta, btn);
+
+      const fila = document.createElement('div');
+      fila.className = 'fila';
+      const pos = document.createElement('span');
+      pos.className = 'pos';
+      pos.textContent = (a.huerfana || a.start == null)
+        ? 'sin anclar en este documento'
+        : ('plano ' + a.start + '–' + a.end +
+           (a.mdStart != null ? ' · md ' + a.mdStart + '–' + a.mdEnd + (a.mdUnico ? '' : ' (múltiple)') : ' · md n/d'));
+      const del = document.createElement('button');
+      del.className = 'del'; del.textContent = 'eliminar';
+      del.addEventListener('click', ()=> removeAnno(a.id));
+      fila.append(pos, del);
+
+      item.append(q, coments, add, fila);
+      list.appendChild(item);
+      autoGrow(ta);
+      if (focusNew && a.id === activeId) ta.focus();
+    }
+  }
+
+  function updateChrome(){
+    const vacio = annos.length === 0;
+    $('export').disabled = vacio;
+    $('cargarJson').disabled = !rawMd;
+    $('contador').textContent = annos.length ? (annos.length + (annos.length === 1 ? ' anotación' : ' anotaciones')) : '';
+    
+    // Mostramos el contenedor de ajustes si hay documento cargado
+    $('controlesVis').style.display = rawMd ? 'block' : 'none';
+    
+    updateStats();
+  }
+
+  // ===== alternar menú de ajustes =====
+  $('btnAjustes').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('ajustesPanel').classList.toggle('hide');
+  });
+  document.addEventListener('click', (e) => {
+    if (!$('controlesVis').contains(e.target)) {
+      $('ajustesPanel').classList.add('hide');
+    }
+  });
+
+  // ===== ancho de lectura configurable =====
+  function aplicarAncho(v){
+    v = Math.max(60, Math.min(160, +v || 68));
+    docEl.style.maxWidth = v + 'ch';
+    $('ancho').value = v;
+    $('ancho-v').textContent = v;
+  }
+  $('ancho').addEventListener('input', ()=>{
+    aplicarAncho($('ancho').value);
+    try { localStorage.setItem('forja-lector-ancho', $('ancho').value); } catch(e){}
+  });
+  (function(){
+    let a = null;
+    try { a = localStorage.getItem('forja-lector-ancho'); } catch(e){}
+    if (a != null) aplicarAncho(a);
+  })();
+
+  function miles(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function updateStats(){
+    const el = $('stats');
+    if (!rawMd){ el.style.display = 'none'; return; }
+    const texto = docText;
+    const palabras = (texto.match(/\S+/g) || []).length;
+    const pags = Math.ceil(palabras / 500);
+    el.style.display = 'block';
+    el.textContent = miles(palabras) + ' palabras · '
+      + miles(texto.length) + ' caracteres · '
+      + pags + (pags === 1 ? ' página' : ' páginas');
+  }
+
+  // ===== botón flotante =====
+  function showFab(range){
+    fab.classList.add('on');
+    if (document.body.classList.contains('tablet')){
+      fab.style.left = ''; fab.style.top = '';
+      return;
+    }
+    const rects = range.getClientRects();
+    const r = rects.length ? rects[rects.length - 1] : range.getBoundingClientRect();
+    const fw = fab.offsetWidth || 96, fh = fab.offsetHeight || 40;
+    const left = Math.max(8, Math.min(r.right, window.innerWidth - fw - 8));
+    let top = r.bottom + 8;
+    if (top + fh > window.innerHeight - 8) top = Math.max(8, r.top - fh - 8);
+    fab.style.left = left + 'px';
+    fab.style.top = top + 'px';
+  }
+  function hideFab(){ fab.classList.remove('on'); }
+
+  function tabletOn(){ return document.body.classList.contains('tablet'); }
+  function setAnotar(on){ const b = $('anotarBtn'); b.disabled = !on; b.classList.toggle('lista', on); }
+  function tryShowFab(){
+    const cap = captureSelection();
+    if (!cap){ hideFab(); setAnotar(false); pending = null; return; }
+    pending = cap;
+    if (tabletOn()) setAnotar(true);
+    else showFab(cap.range);
+  }
+  let selTimer = null;
+  function tryShowFabDebounced(){ clearTimeout(selTimer); selTimer = setTimeout(tryShowFab, 250); }
+  document.addEventListener('selectionchange', tryShowFabDebounced);
+  read.addEventListener('mouseup', tryShowFab);
+  read.addEventListener('touchend', tryShowFabDebounced);
+  fab.addEventListener('click', addAnno);
+  $('anotarBtn').addEventListener('click', ()=>{ if (pending){ addAnno(); setAnotar(false); } });
+  document.addEventListener('pointerdown', e=>{ if (!fab.contains(e.target)) hideFab(); });
+  read.addEventListener('scroll', ()=>{ if (!tabletOn()) hideFab(); });
+
+  // ===== modo tablet =====
+  function aplicarTablet(on){
+    document.body.classList.toggle('tablet', on);
+    $('tablet').classList.toggle('activo', on);
+    $('tablet').textContent = on ? 'tablet ✓' : 'tablet';
+    hideFab(); tryShowFab();
+  }
+  $('tablet').addEventListener('click', ()=>{
+    const on = !document.body.classList.contains('tablet');
+    aplicarTablet(on);
+    try { localStorage.setItem('forja-lector-tablet', on ? '1' : '0'); } catch(e){}
+  });
+  (function(){
+    let pref = null;
+    try { pref = localStorage.getItem('forja-lector-tablet'); } catch(e){}
+    const touch = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+    aplicarTablet(pref != null ? pref === '1' : touch);
+  })();
+
+  // ===== exportar =====
+  function hash32(s){ let h = 5381; for (let i=0;i<s.length;i++) h = ((h<<5) + h + s.charCodeAt(i)) | 0; return (h>>>0).toString(16); }
+
+  function buildPayload(){
+    return {
+      forjaAnotador: '1',
+      generado: new Date().toISOString(),
+      documento: {
+        nombre: docName,
+        hashMd: hash32(rawMd),
+        longitudMd: rawMd.length,
+        longitudPlano: docText.length
+      },
+      anotaciones: annos.map(a=>({
+        id: a.id,
+        creado: a.creado,
+        objetivo: {
+          exact: a.exact,
+          prefix: a.prefix,
+          suffix: a.suffix,
+          textoPlano: (a.start != null && a.end != null) ? { start: a.start, end: a.end } : null,
+          fuenteMd: a.mdStart == null ? null : { start: a.mdStart, end: a.mdEnd, unico: a.mdUnico }
+        },
+        comentarios: a.comentarios.map(c=>({ texto: c.texto, creado: c.creado }))
+      }))
+    };
+  }
+
+  function exportar(){
+    if (!annos.length) return;
+    const blob = new Blob([JSON.stringify(buildPayload(), null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement('a');
+    el.href = url;
+    el.download = docName.replace(/\.(md|markdown|txt)$/i, '') + '.anotaciones.json';
+    el.click();
+    URL.revokeObjectURL(url);
+  }
+  $('export').addEventListener('click', exportar);
+
+  $('cargarJson').addEventListener('click', ()=> $('fileJson').click());
+  $('fileJson').addEventListener('change', e=>{ readJsonFile(e.target.files[0]); e.target.value = ''; });
+
+  function avisoDoc(msg, ms){
+    $('docname').textContent = msg ? (docTitulo + '  ·  ' + msg) : docTitulo;
+    if (msg) setTimeout(()=>{ if (docTitulo) $('docname').textContent = docTitulo; }, ms || 3500);
+  }
+
+  // ===== control dinámico de porcentaje de negro =====
+  function aplicarTono(porcentaje){
+    porcentaje = Math.max(0, Math.min(100, +porcentaje || 0));
+    $('tono').value = porcentaje;
+    $('tono-v').textContent = porcentaje + '%';
+    
+    const root = document.documentElement;
+    
+    // Si estamos en 0% y no se ha forzado, limpiamos para volver al cálido original.
+    if (porcentaje === 0 && !localStorage.getItem('forja-lector-tono-fijo')) {
+      root.style.removeProperty('--paper');
+      root.style.removeProperty('--panel');
+      root.style.removeProperty('--line');
+      root.style.removeProperty('--ink');
+      root.style.removeProperty('--ink-dim');
+      return;
+    }
+
+    // Cálculo: L = 100% es blanco puro, L = 0% es negro puro.
+    const L = 100 - porcentaje;
+    const textoClaro = L < 55; // Umbral de inversión
+    
+    root.style.setProperty('--paper', `hsl(0, 0%, ${L}%)`);
+    root.style.setProperty('--panel', `hsl(0, 0%, ${L > 50 ? L - 4 : L + 4}%)`);
+    root.style.setProperty('--line',  `hsl(0, 0%, ${L > 50 ? L - 12 : L + 12}%)`);
+
+    if (textoClaro) {
+      root.style.setProperty('--ink', '#ffffff');
+      root.style.setProperty('--ink-dim', '#a0a0a0');
+    } else {
+      root.style.setProperty('--ink', '#111111');
+      root.style.setProperty('--ink-dim', '#555555');
+    }
+  }
+
+  $('tono').addEventListener('input', ()=>{
+    localStorage.setItem('forja-lector-tono-fijo', '1');
+    aplicarTono($('tono').value);
+    try { localStorage.setItem('forja-lector-tono', $('tono').value); } catch(e){}
+  });
+
+  (function(){
+    let t = null;
+    try { t = localStorage.getItem('forja-lector-tono'); } catch(e){}
+    if (t != null) aplicarTono(t);
+  })();
+
+  // ===== tema claro/oscuro =====
+  function aplicarTema(oscuro){
+    document.body.classList.toggle('oscuro', oscuro);
+    $('tema').textContent = oscuro ? 'claro' : 'oscuro';
+  }
+  $('tema').addEventListener('click', ()=>{
+    const o = !document.body.classList.contains('oscuro');
+    aplicarTema(o);
+    try { localStorage.setItem('forja-lector-tema', o ? 'oscuro' : 'claro'); } catch(e){}
+  });
+  (function(){
+    let pref = null;
+    try { pref = localStorage.getItem('forja-lector-tema'); } catch(e){}
+    aplicarTema(pref ? pref === 'oscuro'
+      : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
+  })();
+
+  // ===== carga de la entrada (?e=nombre) =====
+  function avisar(html){ $('avisoTx').innerHTML = html; empty.classList.remove('hide'); }
+  const esc = (t)=> String(t).replace(/[&<>"]/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function irAncla(){
+    if (!location.hash) return;
+    let id = location.hash.slice(1);
+    try { id = decodeURIComponent(id); } catch(e){}
+    const el = document.getElementById(id);
+    if (el && docEl.contains(el)){
+      const rc = el.getBoundingClientRect(), cc = read.getBoundingClientRect();
+      read.scrollTop += (rc.top - cc.top) - 16;
+    }
+  }
+  async function abrir(){
+    const pedido = new URLSearchParams(location.search).get('e');
+    entrada = N.validarNombre(pedido) || '';
+    if (!entrada){
+      avisar(pedido ? '<b>Nombre de entrada no válido.</b> <a href="./">Volver al índice</a>'
+                    : '<b>No se indicó ninguna entrada.</b> <a href="./">Ir al índice</a>');
+      return;
+    }
+    let res;
+    try { res = await fetch(N.rutaMd(entrada), { cache:'no-cache' }); }
+    catch(e){ avisar('<b>No se pudo cargar la entrada:</b> error de red. Revisa la conexión y recarga.'); return; }
+    if (!res.ok){
+      avisar(res.status === 404
+        ? '<b>No existe la entrada «' + esc(entrada) + '».</b> El archivo <code>entradas/' + esc(entrada) + '.md</code> no está publicado. <a href="./">Volver al índice</a>'
+        : '<b>El servidor respondió ' + res.status + '.</b> <a href="./">Volver al índice</a>');
+      return;
+    }
+    render(await res.text(), entrada + '.md');
+    restaurar();
+    requestAnimationFrame(irAncla);
+  }
+  abrir();
+
+  if (!canHL){
+    $('contador').title = 'Este navegador no resalta en pantalla, pero las anotaciones y el export funcionan.';
+  }
+})();
+</script>
+</body>
+</html>

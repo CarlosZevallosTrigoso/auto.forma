@@ -1,0 +1,4 @@
+---
+layout: null
+---
+{"entradas":[{% assign primero = true %}{% for f in site.static_files %}{% assign ini = f.path | slice: 0, 10 %}{% assign resto = f.path | remove_first: "/entradas/" %}{% assign ext = f.extname | downcase %}{% if ini == "/entradas/" and ext == ".md" %}{% unless resto contains "/" %}{% unless primero %},{% endunless %}{{ f.path | jsonify }}{% assign primero = false %}{% endunless %}{% endif %}{% endfor %}]}
