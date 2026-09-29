@@ -176,6 +176,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
   #doc h2{font-size:1.35em; margin:1.6em 0 .5em}
   #doc h3{font-size:1.12em; margin:1.4em 0 .4em}
   #doc p{margin:0 0 1.05em; text-align:justify; hyphens:auto}
+  #doc.izquierda p{text-align:left; hyphens:manual}
   #doc em{font-style:italic}
   #doc strong{font-weight:600}
   #doc a{color:var(--steel)}
@@ -184,7 +185,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
   #doc ul,#doc ol{padding-left:1.4em; margin:0 0 1.05em}
   #doc li{margin:.2em 0}
   #doc img{max-width:100%; height:auto}
-  #doc pre{font-family:var(--mono); font-size:12.5px; line-height:1.55; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; overflow-x:auto}
+  #doc pre{font-family:var(--mono); font-size:.74em; line-height:1.55; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; overflow-x:auto}
   #doc pre code{background:none; padding:0}
   #doc table{border-collapse:collapse; margin:0 0 1.05em; font-size:.9em; display:block; overflow-x:auto}
   #doc th,#doc td{border:1px solid var(--line); padding:.3em .6em; text-align:left; vertical-align:top}
@@ -292,6 +293,12 @@ if(__exports != exports)module.exports = exports;return module.exports}));
   }
   .ajuste-row input{width:130px; accent-color:var(--moss); margin:0}
   .ajuste-row .val{color:var(--moss); font-variant-numeric:tabular-nums; min-width:4ch; text-align:right}
+  .ajuste-row > span:first-child{min-width:7ch}
+  .seg{display:flex; width:130px}
+  .seg button{flex:1; padding:3px 0; font-size:10px; border-radius:0}
+  .seg button:first-child{border-radius:var(--r) 0 0 var(--r)}
+  .seg button:last-child{border-radius:0 var(--r) var(--r) 0; border-left:none}
+  .seg button[aria-pressed="true"]{background:var(--moss); border-color:var(--moss); color:#fff}
 
   .nota.huerfana{opacity:.72; border-style:dashed}
   .nota.huerfana .quote{border-left-color:var(--ink-dim)}
@@ -339,6 +346,19 @@ if(__exports != exports)module.exports = exports;return module.exports}));
         <span>ancho</span>
         <input type="range" id="ancho" min="60" max="160" step="2" value="68">
         <span class="val" id="ancho-v">68</span>
+      </div>
+      <div class="ajuste-row">
+        <span>letra</span>
+        <input type="range" id="letra" min="14" max="30" step="1" value="17" aria-label="Tamaño de letra">
+        <span class="val" id="letra-v">17</span>
+      </div>
+      <div class="ajuste-row">
+        <span>texto</span>
+        <div class="seg" role="group" aria-label="Alineación del texto">
+          <button id="alJust" type="button" aria-pressed="true">justificado</button>
+          <button id="alIzq" type="button" aria-pressed="false">izquierda</button>
+        </div>
+        <span class="val"></span>
       </div>
     </div>
   </div>
@@ -953,6 +973,47 @@ if (typeof module !== 'undefined') module.exports = NUCLEO;
     let a = null;
     try { a = localStorage.getItem('forja-lector-ancho'); } catch(e){}
     if (a != null) aplicarAncho(a);
+  })();
+
+  // conserva el punto de lectura cuando cambia el tamaño del texto
+  function sinSalto(fn){
+    const h = read.scrollHeight - read.clientHeight;
+    const f = h > 0 ? read.scrollTop / h : 0;
+    fn();
+    const h2 = read.scrollHeight - read.clientHeight;
+    if (h2 > 0) read.scrollTop = f * h2;
+  }
+
+  // ===== tamaño de letra =====
+  function aplicarLetra(v){
+    v = Math.max(14, Math.min(30, Math.round(+v) || 17));
+    sinSalto(()=>{ docEl.style.fontSize = v + 'px'; });
+    $('letra').value = v;
+    $('letra-v').textContent = v;
+  }
+  $('letra').addEventListener('input', ()=>{
+    aplicarLetra($('letra').value);
+    try { localStorage.setItem('forja-lector-letra', $('letra').value); } catch(e){}
+  });
+
+  // ===== alineación: justificado / izquierda =====
+  function aplicarAlineacion(izq){
+    sinSalto(()=>{ docEl.classList.toggle('izquierda', izq); });
+    $('alJust').setAttribute('aria-pressed', String(!izq));
+    $('alIzq').setAttribute('aria-pressed', String(izq));
+  }
+  function elegirAlineacion(izq){
+    aplicarAlineacion(izq);
+    try { localStorage.setItem('forja-lector-alineacion', izq ? 'izquierda' : 'justificado'); } catch(e){}
+  }
+  $('alJust').addEventListener('click', ()=> elegirAlineacion(false));
+  $('alIzq').addEventListener('click', ()=> elegirAlineacion(true));
+
+  (function(){
+    let l = null, al = null;
+    try { l = localStorage.getItem('forja-lector-letra'); al = localStorage.getItem('forja-lector-alineacion'); } catch(e){}
+    if (l != null) aplicarLetra(l);
+    if (al === 'izquierda') aplicarAlineacion(true);
   })();
 
   function miles(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
